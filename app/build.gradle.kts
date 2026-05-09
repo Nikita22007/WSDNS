@@ -18,7 +18,7 @@ dependencies {
 
 graalvmNative {
     binaries.all {
-        imageName.set("ws-mdns-proxy")
+        imageName.set("wsdns")
         buildArgs.addAll(
             "--no-fallback",
             "-H:+ReportExceptionStackTraces"
