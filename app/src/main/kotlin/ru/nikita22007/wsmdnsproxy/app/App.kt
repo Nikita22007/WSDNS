@@ -1,14 +1,12 @@
 package ru.nikita22007.wsmdnsproxy.app
 
-import kotlinx.coroutines.runBlocking
-
-fun main(args: Array<String>) = runBlocking {
+fun main(args: Array<String>) {
     val isWindows = System.getProperty("os.name").contains("Windows", ignoreCase = true)
     val cliArgs = CliParser.parse(args, isWindows)
 
     if (cliArgs.showHelp) {
         CliParser.printHelp()
-        return@runBlocking
+        return
     }
 
     // 1. Загружаем конфиг и применяем параметры CLI
@@ -26,7 +24,7 @@ fun main(args: Array<String>) = runBlocking {
 
     if (interfacesToUse.isEmpty()) {
         println("Error: No network interfaces found.")
-        return@runBlocking
+        return
     }
 
     // 3. Запускаем оркестратор

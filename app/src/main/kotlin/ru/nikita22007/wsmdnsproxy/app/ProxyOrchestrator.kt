@@ -1,20 +1,20 @@
 package ru.nikita22007.wsmdnsproxy.app
 
-import kotlinx.coroutines.delay
 import java.util.concurrent.ConcurrentHashMap
+import java.lang.Thread.sleep
 
 class ProxyOrchestrator(private val config: ProxyConfig, private val interfaces: List<InterfaceRequest>) {
     private val activeDevices = ConcurrentHashMap<String, String>()
     private lateinit var responders: List<WsdResponder>
     private lateinit var scanners: List<MdnsScanner>
 
-    suspend fun run() {
+    fun run() {
         val isolated = config.isolatedMode
         println("Running in ${if (isolated) "ISOLATED" else "PUBLIC"} mode.")
-        println("Active interfaces: ${interfaces.joinToString { "${it.ip}${if (it.port > 0) ":${it.port}" else ""}" }}")
-
+        
         // 1. Инициализируем респондеры
         responders = if (isolated) {
+            println("WSD Responder started in ISOLATED mode.")
             listOf(WsdResponder("127.0.0.1", interfaces.firstOrNull()?.port ?: 0))
         } else {
             interfaces.map { WsdResponder(it.ip, it.port) }
@@ -22,7 +22,7 @@ class ProxyOrchestrator(private val config: ProxyConfig, private val interfaces:
 
         val mDNSTypes = config.mappings.map { it.mdnsType }.distinct()
 
-        // 2. Инициализируем сканеры (всегда на реальных внешних IP)
+        // 2. Инициализируем сканеры
         val externalIps = NetworkUtils.getLocalIps()
         scanners = externalIps.map { ip ->
             MdnsScanner(ip, mDNSTypes) { info -> handleDiscoveredService(info) }
@@ -32,7 +32,7 @@ class ProxyOrchestrator(private val config: ProxyConfig, private val interfaces:
         scanners.forEach { it.start() }
 
         println("mDNS-WSD Proxy is fully operational.")
-        while (true) { delay(1000) }
+        while (true) { sleep(1000) }
     }
 
     private fun handleDiscoveredService(info: MdnsServiceInfo) {

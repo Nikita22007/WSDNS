@@ -5,19 +5,28 @@
 plugins {
     id("buildlogic.kotlin-application-conventions")
     kotlin("plugin.serialization") version "2.1.0"
+    id("org.graalvm.buildtools.native") version "0.10.1"
 }
 
 dependencies {
     implementation("org.jmdns:jmdns:3.5.9")
-    implementation("io.ktor:ktor-server-netty:2.3.10")
-    implementation("io.ktor:ktor-server-core:2.3.10")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.apache.commons:commons-text")
     implementation(project(":utilities"))
 }
 
+nativeBuild {
+    baseName.set("ws-mdns-proxy")
+    mainClass.set("ru.nikita22007.wsmdnsproxy.app.AppKt")
+    
+    imageCodeCache.set(true)
+    
+    buildArgs.addAll(
+        "--no-fallback",
+        "-H:+ReportExceptionStackTraces"
+    )
+}
+
 application {
-    // Define the main class for the application.
     mainClass = "ru.nikita22007.wsmdnsproxy.app.AppKt"
 }

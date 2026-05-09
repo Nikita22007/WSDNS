@@ -1,23 +1,19 @@
 package ru.nikita22007.wsmdnsproxy.app
 
-import io.ktor.http.*
-import io.ktor.server.application.*
-import io.ktor.server.engine.*
-import io.ktor.server.netty.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
-import kotlinx.coroutines.delay
+import com.sun.net.httpserver.HttpExchange
+import com.sun.net.httpserver.HttpServer
 import java.net.*
 import java.util.*
+import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 
-class WsdResponder(val localIp: String, private var fixedHttpPort: Int = 0) {
+class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
     private val devices = mutableMapOf<String, WsdDevice>()
     private val instanceId = System.currentTimeMillis() / 1000
     private val sequenceId = "urn:uuid:${UUID.randomUUID()}"
     private var messageCount = 1
     private var actualHttpPort = 0
+    private var httpServer: HttpServer? = null
 
     private val multicastAddr = InetAddress.getByName("239.255.255.250")
     private val wsdPort = 3702
@@ -38,45 +34,48 @@ class WsdResponder(val localIp: String, private var fixedHttpPort: Int = 0) {
         devices.remove(uuid)
     }
 
-    fun getDevice(uuid: String): WsdDevice? {
-        return devices[uuid]
-    }
+    fun getDevice(uuid: String): WsdDevice? = devices[uuid]
 
-    suspend fun start() {
+    fun start() {
         startHttpServer()
         startUdpListener()
     }
 
-    private suspend fun startHttpServer() {
-        val server = embeddedServer(Netty, port = fixedHttpPort) {
-            routing {
-                route("/{uuid}") {
-                    get { handleMetadataRequest(call) }
-                    post { handleMetadataRequest(call) }
-                }
-            }
+    private fun startHttpServer() {
+        val server = HttpServer.create(InetSocketAddress(localIp, fixedHttpPort), 0)
+        server.createContext("/") { exchange ->
+            handleMetadataRequest(exchange)
         }
-        server.start(wait = false)
-        actualHttpPort = server.resolvedConnectors().first().port
+        server.executor = Executors.newSingleThreadExecutor()
+        server.start()
+        
+        actualHttpPort = server.address.port
+        httpServer = server
         println("WSD HTTP Server for $localIp started on port $actualHttpPort")
     }
 
-    private suspend fun handleMetadataRequest(call: ApplicationCall) {
-        val uuid = call.parameters["uuid"]
+    private fun handleMetadataRequest(exchange: HttpExchange) {
+        val uuid = exchange.requestURI.path.trim('/')
         val device = devices[uuid]
+        
         if (device == null) {
-            call.respond(HttpStatusCode.NotFound)
+            exchange.sendResponseHeaders(404, -1)
+            exchange.close()
             return
         }
 
-        val body = runCatching { call.receiveText() }.getOrDefault("")
+        val body = exchange.requestBody.bufferedReader().readText()
         val messageIdMatch = Regex("<(?:.*?:)?MessageID>(.*?)</(?:.*?:)?MessageID>").find(body)
         val messageId = messageIdMatch?.groupValues?.get(1) ?: ""
         
-        println(">>> Metadata request (HTTP ${call.request.httpMethod.value}) for ${device.name}. RelatesTo: $messageId")
+        println(">>> Metadata request (${exchange.requestMethod}) for ${device.name}. RelatesTo: $messageId")
         
-        val response = generateMetadataXml(device, messageId)
-        call.respondBytes(response.toByteArray(), ContentType.parse("application/soap+xml"))
+        val responseXml = generateMetadataXml(device, messageId)
+        val responseBytes = responseXml.toByteArray()
+
+        exchange.responseHeaders.set("Content-Type", "application/soap+xml")
+        exchange.sendResponseHeaders(200, responseBytes.size.toLong())
+        exchange.responseBody.use { it.write(responseBytes) }
     }
 
     private fun startUdpListener() {
@@ -93,19 +92,10 @@ class WsdResponder(val localIp: String, private var fixedHttpPort: Int = 0) {
                     val message = String(packet.data, 0, packet.length)
 
                     if (message.contains("/discovery/Probe")) {
-                        // Извлекаем MessageID надежно (префикс может быть a: или wsa:)
                         val messageIdMatch = Regex("<(?:.*?:)?MessageID>(.*?)</(?:.*?:)?MessageID>").find(message)
                         val messageId = messageIdMatch?.groupValues?.get(1) ?: ""
-
-                        val typesMatch = Regex("<(?:.*?:)?Types>(.*?)</(?:.*?:)?Types>").find(message)
-                        val requestedTypes = typesMatch?.groupValues?.get(1) ?: "None"
                         
-                        println("\n--- Received Probe from ${packet.address}:${packet.port} ---")
-                        println("Requested Types: $requestedTypes | MessageID: $messageId")
-
-                        // Отвечаем от имени всех устройств
                         devices.values.forEach { device ->
-                            println("Sending ProbeMatch for ${device.name} to ${packet.address}:${packet.port}")
                             sendProbeMatch(packet.address, packet.port, device, messageId)
                         }
                     }
