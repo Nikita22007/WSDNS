@@ -10,5 +10,5 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "ws-mdns-proxy"
+rootProject.name = "WSDNS"
 include("app", "list", "utilities")
