@@ -15,16 +15,15 @@ dependencies {
     implementation(project(":utilities"))
 }
 
-nativeBuild {
-    baseName.set("ws-mdns-proxy")
-    mainClass.set("ru.nikita22007.wsmdnsproxy.app.AppKt")
-    
-    imageCodeCache.set(true)
-    
-    buildArgs.addAll(
-        "--no-fallback",
-        "-H:+ReportExceptionStackTraces"
-    )
+graalvmNative {
+    binaries.all {
+        imageName.set("ws-mdns-proxy")
+        mainClass.set("ru.nikita22007.wsmdnsproxy.app.AppKt")
+        buildArgs.addAll(
+            "--no-fallback",
+            "-H:+ReportExceptionStackTraces"
+        )
+    }
 }
 
 application {
