@@ -21,7 +21,7 @@ graalvmNative {
         imageName.set("wsdns")
         buildArgs.addAll(
             "--no-fallback",
-            "--initialize-at-run-time=kotlin",
+            "--trace-class-initialization=kotlin.DeprecationLevel",
             "-H:+ReportExceptionStackTraces"
         )
     }
