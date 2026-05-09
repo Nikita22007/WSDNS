@@ -15,7 +15,7 @@ data class ServiceMapping(
 
 @Serializable
 data class ProxyConfig(
-    val isolatedMode: Boolean = true,
+    val isolatedMode: Boolean = System.getProperty("os.name").contains("Windows", ignoreCase = true),
     val debugMode: Boolean = false,
     val mappings: List<ServiceMapping> = listOf(
         ServiceMapping("_smb._tcp.local.", "Computers", priority = 100),
