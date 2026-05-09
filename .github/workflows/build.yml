@@ -1,4 +1,4 @@
-name: Build Native Binaries
+name: Build Project
 
 on:
   push:
@@ -7,36 +7,52 @@ on:
     branches: [ master, main ]
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
+  build-jar:
+    name: Build Fat JAR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+      - name: Build Shadow JAR
+        run: ./gradlew :app:shadowJar --no-daemon
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ws-mdns-proxy-all-jar
+          path: app/build/libs/*-all.jar
+
+  build-native:
+    name: Build Native on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: true # Провал одной ОС не убивает весь пайплайн
     strategy:
+      fail-fast: false # Ждем завершения всех джобов в матрице
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
-          java-version: '21' # Используем стабильную 21 GraalVM
+          java-version: '21'
           distribution: 'graalvm'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           native-image-job-reports: 'true'
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: wrapper
-
       - name: Build Native Image
         run: ./gradlew :app:nativeCompile --no-daemon
-
-      - name: Upload Artifact
+      - name: Upload Native Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ws-mdns-proxy-${{ matrix.os }}
+          name: ws-mdns-proxy-native-${{ matrix.os }}
           path: |
             app/build/native/nativeCompile/ws-mdns-proxy
             app/build/native/nativeCompile/ws-mdns-proxy.exe
