@@ -1,12 +1,10 @@
 package ru.nikita22007.wsmdnsproxy.app
 
-import java.util.*
-
 data class WsdDevice(
-    val uuid: String = UUID.randomUUID().toString(),
+    val uuid: String,
     val name: String,
     val realHostname: String,
-    var category: String = "Other", // По умолчанию ставим "Другие"
+    var category: String = "Other",
     var presentationUrl: String? = null,
     val workgroup: String = "WORKGROUP"
 ) {

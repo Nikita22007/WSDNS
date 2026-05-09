@@ -39,15 +39,18 @@ class ProxyOrchestrator(private val config: ProxyConfig, private val interfaces:
         val name = info.name
         val displayName = if (config.debugMode) "$name-KProxy" else name
         
+        // Генерируем стабильный UUID на основе реального имени хоста
+        val deviceUuid = java.util.UUID.nameUUIDFromBytes(name.toByteArray()).toString()
+        
         val mapping = config.mappings
             .filter { it.mdnsType == info.type }
             .maxByOrNull { it.priority } ?: return
 
         val existingUuid = activeDevices[name]
         val device = if (existingUuid != null) {
-            responders.first().getDevice(existingUuid) ?: WsdDevice(name = displayName, realHostname = name)
+            responders.first().getDevice(existingUuid) ?: WsdDevice(uuid = deviceUuid, name = displayName, realHostname = name)
         } else {
-            WsdDevice(name = displayName, realHostname = name)
+            WsdDevice(uuid = deviceUuid, name = displayName, realHostname = name)
         }
 
         var updated = false
