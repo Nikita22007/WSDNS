@@ -12,12 +12,12 @@ import java.net.*
 import java.util.*
 import kotlin.concurrent.thread
 
-class WsdResponder(val localIp: String) {
+class WsdResponder(val localIp: String, private var fixedHttpPort: Int = 0) {
     private val devices = mutableMapOf<String, WsdDevice>()
     private val instanceId = System.currentTimeMillis() / 1000
     private val sequenceId = "urn:uuid:${UUID.randomUUID()}"
     private var messageCount = 1
-    private var httpPort = 0
+    private var actualHttpPort = 0
 
     private val multicastAddr = InetAddress.getByName("239.255.255.250")
     private val wsdPort = 3702
@@ -48,7 +48,7 @@ class WsdResponder(val localIp: String) {
     }
 
     private suspend fun startHttpServer() {
-        val server = embeddedServer(Netty, port = 0) {
+        val server = embeddedServer(Netty, port = fixedHttpPort) {
             routing {
                 route("/{uuid}") {
                     get { handleMetadataRequest(call) }
@@ -57,8 +57,8 @@ class WsdResponder(val localIp: String) {
             }
         }
         server.start(wait = false)
-        httpPort = server.resolvedConnectors().first().port
-        println("WSD HTTP Server started on port $httpPort")
+        actualHttpPort = server.resolvedConnectors().first().port
+        println("WSD HTTP Server for $localIp started on port $actualHttpPort")
     }
 
     private suspend fun handleMetadataRequest(call: ApplicationCall) {
@@ -117,7 +117,7 @@ class WsdResponder(val localIp: String) {
     }
 
     private fun sendHello(device: WsdDevice) {
-        val xAddr = "http://$localIp:$httpPort/${device.uuid}"
+        val xAddr = "http://$localIp:$actualHttpPort/${device.uuid}"
         val types = if (device.category == "Computers") "wsdp:Device pub:Computer" else "wsdp:Device"
         val xml = """<?xml version="1.0" encoding="utf-8"?>
 $envelopeHeader
@@ -144,7 +144,7 @@ $envelopeHeader
     }
 
     private fun sendProbeMatch(address: InetAddress, port: Int, device: WsdDevice, relatesTo: String) {
-        val xAddr = "http://$localIp:$httpPort/${device.uuid}"
+        val xAddr = "http://$localIp:$actualHttpPort/${device.uuid}"
         val types = if (device.category == "Computers") "wsdp:Device pub:Computer" else "wsdp:Device"
         val xml = """<?xml version="1.0" encoding="utf-8"?>
 $envelopeHeader

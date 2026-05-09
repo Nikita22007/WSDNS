@@ -12,7 +12,7 @@ data class MdnsServiceInfo(
     val port: Int
 )
 
-class MdnsScanner(val localIp: String, val onServiceFound: (MdnsServiceInfo) -> Unit) {
+class MdnsScanner(val localIp: String, val serviceTypes: List<String>, val onServiceFound: (MdnsServiceInfo) -> Unit) {
     private var jmdns: JmDNS? = null
 
     fun start() {
@@ -23,9 +23,7 @@ class MdnsScanner(val localIp: String, val onServiceFound: (MdnsServiceInfo) -> 
                 jmdns?.requestServiceInfo(event.type, event.name)
             }
 
-            override fun serviceRemoved(event: ServiceEvent) {
-                // Пока игнорируем удаление для упрощения слияния сервисов
-            }
+            override fun serviceRemoved(event: ServiceEvent) {}
 
             override fun serviceResolved(event: ServiceEvent) {
                 val ip = event.info.hostAddresses.firstOrNull() ?: return
@@ -40,11 +38,11 @@ class MdnsScanner(val localIp: String, val onServiceFound: (MdnsServiceInfo) -> 
             }
         }
 
-        jmdns?.addServiceListener("_http._tcp.local.", listener)
-        jmdns?.addServiceListener("_smb._tcp.local.", listener)
-        jmdns?.addServiceListener("_sftp-ssh._tcp.local.", listener)
+        serviceTypes.forEach { type ->
+            jmdns?.addServiceListener(type, listener)
+        }
         
-        println("mDNS Scanner started on $localIp")
+        println("mDNS Scanner started on $localIp (listening ${serviceTypes.size} types)")
     }
 
     fun stop() { jmdns?.close() }
