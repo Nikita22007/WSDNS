@@ -30,21 +30,53 @@ fun main() = runBlocking {
 
     val scanners = externalIps.map { ip ->
         MdnsScanner(ip, 
-            onDeviceFound = { name ->
+            onServiceFound = { info ->
+                val name = info.name
                 val displayName = if (DEBUG_MODE) "$name-KProxy" else name
-                val newDevice = WsdDevice(name = displayName, realHostname = name)
                 
-                // putIfAbsent вернет null, если ключа не было (т.е. устройство новое)
-                if (activeDevices.putIfAbsent(name, newDevice.uuid) == null) {
-                    println(">>> Proxying new mDNS device: $name as $displayName")
-                    responders.forEach { it.addDevice(newDevice) }
+                // Ищем существующее устройство или создаем новое
+                val existingUuid = activeDevices[name]
+                val device = if (existingUuid != null) {
+                    responders.first().getDevice(existingUuid) ?: WsdDevice(name = displayName, realHostname = name)
+                } else {
+                    WsdDevice(name = displayName, realHostname = name)
                 }
-            },
-            onDeviceLost = { name ->
-                val uuid = activeDevices.remove(name)
-                if (uuid != null) {
-                    println("<<< Removing proxied device: $name")
-                    responders.forEach { it.removeDevice(uuid) }
+
+                var updated = false
+
+                // Умный маппинг типов
+                if (info.type.contains("_smb._tcp")) {
+                    if (device.category != "Computers") {
+                        device.category = "Computers"
+                        updated = true
+                    }
+                } else if (info.type.contains("_http._tcp") && device.category != "Computers") {
+                    // Если это HTTP и мы еще не решили, что это файловый сервер
+                    if (device.category != "NetworkInfrastructure") {
+                        device.category = "NetworkInfrastructure"
+                        device.presentationUrl = "http://${info.ip}:${info.port}"
+                        updated = true
+                    }
+                } else if (info.type.contains("_sftp-ssh._tcp") && device.category != "Computers") {
+                    if (device.category != "Storage.NAS") {
+                        device.category = "Storage.NAS"
+                        device.presentationUrl = "sftp://${info.ip}:${info.port}"
+                        updated = true
+                    }
+                }
+
+                if (existingUuid == null) {
+                    println(">>> Proxying new mDNS device: $name (Type: ${info.type}, Category: ${device.category})")
+                    activeDevices[name] = device.uuid
+                    responders.forEach { it.addDevice(device) }
+                } else if (updated) {
+                    println(">>> Updating device: $name (New Category: ${device.category}, URL: ${device.presentationUrl})")
+                    // Для обновления WSD требует отправить BYE и снова HELLO.
+                    // Упростим: просто удалим и добавим.
+                    responders.forEach { 
+                        it.removeDevice(device.uuid)
+                        it.addDevice(device)
+                    }
                 }
             }
         )

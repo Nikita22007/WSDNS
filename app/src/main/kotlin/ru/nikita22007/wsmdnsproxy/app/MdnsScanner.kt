@@ -5,7 +5,14 @@ import javax.jmdns.ServiceEvent
 import javax.jmdns.ServiceListener
 import java.net.InetAddress
 
-class MdnsScanner(val localIp: String, val onDeviceFound: (String) -> Unit, val onDeviceLost: (String) -> Unit) {
+data class MdnsServiceInfo(
+    val name: String,
+    val type: String,
+    val ip: String,
+    val port: Int
+)
+
+class MdnsScanner(val localIp: String, val onServiceFound: (MdnsServiceInfo) -> Unit) {
     private var jmdns: JmDNS? = null
 
     fun start() {
@@ -13,33 +20,32 @@ class MdnsScanner(val localIp: String, val onDeviceFound: (String) -> Unit, val 
         
         val listener = object : ServiceListener {
             override fun serviceAdded(event: ServiceEvent) {
-                // Когда сервис добавлен, нужно запросить детали
                 jmdns?.requestServiceInfo(event.type, event.name)
             }
 
             override fun serviceRemoved(event: ServiceEvent) {
-                println("mDNS Service removed: ${event.name}")
-                onDeviceLost(event.name)
+                // Пока игнорируем удаление для упрощения слияния сервисов
             }
 
             override fun serviceResolved(event: ServiceEvent) {
-                println("mDNS Service resolved: ${event.name} (${event.info.hostAddresses.firstOrNull()})")
-                // Нам нужно только имя хоста (без .local)
-                val cleanName = event.name.split(".").first().uppercase()
-                onDeviceFound(cleanName)
+                val ip = event.info.hostAddresses.firstOrNull() ?: return
+                val cleanName = event.name.split(".").first().split("@").last().uppercase()
+                
+                onServiceFound(MdnsServiceInfo(
+                    name = cleanName,
+                    type = event.type,
+                    ip = ip,
+                    port = event.info.port
+                ))
             }
         }
 
-        // Слушаем популярные типы сервисов, которые обычно есть на серверах
         jmdns?.addServiceListener("_http._tcp.local.", listener)
         jmdns?.addServiceListener("_smb._tcp.local.", listener)
-        jmdns?.addServiceListener("_device-info._tcp.local.", listener)
         jmdns?.addServiceListener("_sftp-ssh._tcp.local.", listener)
         
         println("mDNS Scanner started on $localIp")
     }
 
-    fun stop() {
-        jmdns?.close()
-    }
+    fun stop() { jmdns?.close() }
 }

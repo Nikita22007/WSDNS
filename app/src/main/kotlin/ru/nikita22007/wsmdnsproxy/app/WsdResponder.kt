@@ -38,6 +38,10 @@ class WsdResponder(val localIp: String) {
         devices.remove(uuid)
     }
 
+    fun getDevice(uuid: String): WsdDevice? {
+        return devices[uuid]
+    }
+
     suspend fun start() {
         startHttpServer()
         startUdpListener()
@@ -114,6 +118,7 @@ class WsdResponder(val localIp: String) {
 
     private fun sendHello(device: WsdDevice) {
         val xAddr = "http://$localIp:$httpPort/${device.uuid}"
+        val types = if (device.category == "Computers") "wsdp:Device pub:Computer" else "wsdp:Device"
         val xml = """<?xml version="1.0" encoding="utf-8"?>
 $envelopeHeader
     <soap:Header>
@@ -125,7 +130,7 @@ $envelopeHeader
     <soap:Body>
         <wsd:Hello>
             <wsa:EndpointReference><wsa:Address>${device.endpointReference}</wsa:Address></wsa:EndpointReference>
-            <wsd:Types>wsdp:Device pub:Computer</wsd:Types>
+            <wsd:Types>$types</wsd:Types>
             <wsd:XAddrs>$xAddr</wsd:XAddrs>
             <wsd:MetadataVersion>1</wsd:MetadataVersion>
         </wsd:Hello>
@@ -140,6 +145,7 @@ $envelopeHeader
 
     private fun sendProbeMatch(address: InetAddress, port: Int, device: WsdDevice, relatesTo: String) {
         val xAddr = "http://$localIp:$httpPort/${device.uuid}"
+        val types = if (device.category == "Computers") "wsdp:Device pub:Computer" else "wsdp:Device"
         val xml = """<?xml version="1.0" encoding="utf-8"?>
 $envelopeHeader
     <soap:Header>
@@ -153,7 +159,7 @@ $envelopeHeader
         <wsd:ProbeMatches>
             <wsd:ProbeMatch>
                 <wsa:EndpointReference><wsa:Address>${device.endpointReference}</wsa:Address></wsa:EndpointReference>
-                <wsd:Types>wsdp:Device pub:Computer</wsd:Types>
+                <wsd:Types>$types</wsd:Types>
                 <wsd:XAddrs>$xAddr</wsd:XAddrs>
                 <wsd:MetadataVersion>1</wsd:MetadataVersion>
             </wsd:ProbeMatch>
@@ -168,6 +174,15 @@ $envelopeHeader
     }
 
     private fun generateMetadataXml(device: WsdDevice, relatesTo: String): String {
+        val presentationUrlXml = if (device.presentationUrl != null) {
+            "\n                    <wsdp:PresentationUrl>${device.presentationUrl}</wsdp:PresentationUrl>"
+        } else ""
+
+        val hostTypes = if (device.category == "Computers") "pub:Computer" else "wsdp:Device"
+        val pubComputerXml = if (device.category == "Computers") {
+            "\n                        <pub:Computer>${device.realHostname}.local/Workgroup:${device.workgroup}</pub:Computer>"
+        } else ""
+
         return """<?xml version="1.0" encoding="utf-8"?>
 $envelopeHeader
     <soap:Header>
@@ -181,8 +196,8 @@ $envelopeHeader
             <wsx:MetadataSection Dialect="http://schemas.xmlsoap.org/ws/2006/02/devprof/ThisModel">
                 <wsdp:ThisModel>
                     <wsdp:Manufacturer>Kotlin-mDNS-Proxy</wsdp:Manufacturer>
-                    <wsdp:ModelName>Virtual Computer</wsdp:ModelName>
-                    <pnpx:DeviceCategory>Computers</pnpx:DeviceCategory>
+                    <wsdp:ModelName>Virtual Computer</wsdp:ModelName>$presentationUrlXml
+                    <pnpx:DeviceCategory>${device.category}</pnpx:DeviceCategory>
                 </wsdp:ThisModel>
             </wsx:MetadataSection>
             <wsx:MetadataSection Dialect="http://schemas.xmlsoap.org/ws/2006/02/devprof/ThisDevice">
@@ -196,9 +211,8 @@ $envelopeHeader
                 <wsdp:Relationship Type="http://schemas.xmlsoap.org/ws/2006/02/devprof/host">
                     <wsdp:Host>
                         <wsa:EndpointReference><wsa:Address>${device.endpointReference}</wsa:Address></wsa:EndpointReference>
-                        <wsdp:Types>pub:Computer</wsdp:Types>
-                        <wsdp:ServiceId>${device.endpointReference}</wsdp:ServiceId>
-                        <pub:Computer>${device.realHostname}.local/Workgroup:${device.workgroup}</pub:Computer>
+                        <wsdp:Types>$hostTypes</wsdp:Types>
+                        <wsdp:ServiceId>${device.endpointReference}</wsdp:ServiceId>$pubComputerXml
                     </wsdp:Host>
                 </wsdp:Relationship>
             </wsx:MetadataSection>
