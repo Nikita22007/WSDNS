@@ -41,21 +41,17 @@ jobs:
     name: Build Native on ${{ matrix.os }} (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     continue-on-error: true
-    timeout-minutes: 15 # Уменьшаем таймаут до 15 минут
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             arch: x86_64
-          - os: ubuntu-24.04-arm64
-            arch: arm64
           - os: windows-latest
             arch: x86_64
           - os: macos-latest
             arch: arm64
-          - os: macos-13
-            arch: x86_64
 
     steps:
       - uses: actions/checkout@v4
@@ -90,12 +86,8 @@ jobs:
             cp app/build/native/nativeCompile/wsdns.exe assets/wsdns-windows-x86_64.exe
           elif [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
             cp app/build/native/nativeCompile/wsdns assets/wsdns-linux-x86_64
-          elif [ "${{ matrix.os }}" == "ubuntu-24.04-arm64" ]; then
-            cp app/build/native/nativeCompile/wsdns assets/wsdns-linux-arm64
           elif [ "${{ matrix.os }}" == "macos-latest" ]; then
             cp app/build/native/nativeCompile/wsdns assets/wsdns-macos-arm64
-          elif [ "${{ matrix.os }}" == "macos-13" ]; then
-            cp app/build/native/nativeCompile/wsdns assets/wsdns-macos-x86_64
           fi
 
       - name: Upload Native Artifact
