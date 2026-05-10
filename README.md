@@ -1,4 +1,5 @@
 # WSDNS (mDNS to WS-Discovery Proxy)
+[![Build and Release](https://github.com/Nikita22007/WSDNS/actions/workflows/build.yml/badge.svg)](https://github.com/Nikita22007/WSDNS/actions/workflows/build.yml)
 
 **WSDNS** is a lightweight, cross-platform bridge that makes mDNS/Bonjour-enabled devices (like Raspberry Pi, NAS, or IoT gadgets) visible in the **Windows Explorer Network** environment using the WS-Discovery protocol.
 
