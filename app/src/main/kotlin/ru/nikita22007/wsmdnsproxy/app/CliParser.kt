@@ -37,7 +37,7 @@ object CliParser {
 
     fun printHelp() {
         println("""
-            WSDNS v1.0.0 - by nikita22007
+            WSDNS v1.1.0 - by nikita22007
             Bridge mDNS services to Windows Network Explorer
             
             Usage:

@@ -51,4 +51,4 @@ Distributed under the **GNU General Public License v3.0**. See `LICENSE` for det
 
 ---
 **Author**: nikita22007
-**Version**: 1.0.0
+**Version**: 1.1.0

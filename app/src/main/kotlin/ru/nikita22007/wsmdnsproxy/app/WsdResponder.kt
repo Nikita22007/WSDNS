@@ -68,7 +68,8 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
         val messageIdMatch = Regex("<(?:.*?:)?MessageID>(.*?)</(?:.*?:)?MessageID>").find(body)
         val messageId = messageIdMatch?.groupValues?.get(1) ?: ""
         
-        println(">>> Metadata request (${exchange.requestMethod}) for ${device.name}. RelatesTo: $messageId")
+        val remoteAddress = exchange.remoteAddress.address.hostAddress
+        println(">>> Metadata request (${exchange.requestMethod}) from $remoteAddress for ${device.name}. RelatesTo: $messageId")
         
         val responseXml = generateMetadataXml(device, messageId)
         val responseBytes = responseXml.toByteArray()
