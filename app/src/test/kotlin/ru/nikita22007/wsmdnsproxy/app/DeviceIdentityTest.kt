@@ -28,4 +28,10 @@ class DeviceIdentityTest {
         assertEquals(smb, selectPreferredService(listOf(smb, http), mappings)?.first)
         assertEquals(http, selectPreferredService(listOf(http), mappings)?.first)
     }
+
+    @Test
+    fun `uses preferred service instance as display name`() {
+        assertEquals("NAS SMB", serviceDisplayName(smb, debugMode = false))
+        assertEquals("NAS SMB-KProxy", serviceDisplayName(smb, debugMode = true))
+    }
 }

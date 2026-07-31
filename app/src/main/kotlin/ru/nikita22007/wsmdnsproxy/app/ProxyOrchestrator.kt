@@ -114,8 +114,7 @@ class ProxyOrchestrator(
 
         val (service, mapping) = selectPreferredService(services, config.mappings) ?: return
 
-        val baseDisplayName = if (config.groupServicesByHost) service.hostname.uppercase() else service.name
-        val displayName = if (config.debugMode) "$baseDisplayName-KProxy" else baseDisplayName
+        val displayName = serviceDisplayName(service, config.debugMode)
         val uuid = java.util.UUID.nameUUIDFromBytes(identity.toByteArray()).toString()
         val presentationUrl = mapping.presentationUrlTemplate
             ?.replace("{ip}", service.ip)
@@ -124,7 +123,10 @@ class ProxyOrchestrator(
 
         val existing = existingUuid?.let { responders.first().getDevice(it) }
         val device = existing ?: WsdDevice(uuid, displayName, service.hostname)
-        val updated = device.category != mapping.wsdCategory || device.presentationUrl != presentationUrl
+        val updated = device.name != displayName ||
+            device.category != mapping.wsdCategory ||
+            device.presentationUrl != presentationUrl
+        device.name = displayName
         device.category = mapping.wsdCategory
         device.presentationUrl = presentationUrl
 
@@ -155,3 +157,6 @@ internal fun selectPreferredService(
         .maxByOrNull { it.priority }
         ?.let { service to it }
 }.maxByOrNull { it.second.priority }
+
+internal fun serviceDisplayName(service: MdnsServiceInfo, debugMode: Boolean): String =
+    if (debugMode) "${service.name}-KProxy" else service.name
