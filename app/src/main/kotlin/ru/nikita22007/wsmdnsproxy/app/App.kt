@@ -19,12 +19,18 @@ fun main(args: Array<String>) {
     val finalConfig = baseConfig.copy(
         isolatedMode = cliArgs.isolatedMode ?: baseConfig.isolatedMode
     )
+    try {
+        finalConfig.validate()
+    } catch (e: IllegalArgumentException) {
+        System.err.println("Error: ${e.message}")
+        return
+    }
     
     // 2. Определяем интерфейсы (ручные или авто)
     val interfacesToUse = if (cliArgs.publishInterfaces.isNotEmpty()) {
         cliArgs.publishInterfaces
     } else {
-        NetworkUtils.getLocalIps().map { InterfaceRequest(it) }
+        NetworkUtils.getLocalIps(finalConfig.enableIpv4, finalConfig.enableIpv6).map { InterfaceRequest(it) }
     }
 
     if (interfacesToUse.isEmpty()) {

@@ -22,10 +22,15 @@ class ProxyOrchestrator(
         // 1. Инициализируем респондеры
         responders = if (isolated) {
             println("WSD Responder started in ISOLATED mode.")
-            listOf(WsdResponder("127.0.0.1", publishInterfaces.firstOrNull()?.port ?: 0))
+            buildList {
+                val port = publishInterfaces.firstOrNull()?.port ?: 0
+                if (config.enableIpv4) add(WsdResponder("127.0.0.1", port))
+                if (config.enableIpv6) add(WsdResponder("::1", port))
+            }
         } else {
             publishInterfaces.flatMap { request ->
-                NetworkUtils.resolveAddresses(request.target).map { WsdResponder(it, request.port) }
+                NetworkUtils.resolveAddresses(request.target, config.enableIpv4, config.enableIpv6)
+                    .map { WsdResponder(it, request.port) }
             }
         }
 
@@ -33,9 +38,11 @@ class ProxyOrchestrator(
 
         // 2. Инициализируем сканеры
         val externalIps = if (listenInterfaces.isEmpty()) {
-            NetworkUtils.getLocalIps()
+            NetworkUtils.getLocalIps(config.enableIpv4, config.enableIpv6)
         } else {
-            listenInterfaces.flatMap(NetworkUtils::resolveAddresses).distinct()
+            listenInterfaces.flatMap {
+                NetworkUtils.resolveAddresses(it, config.enableIpv4, config.enableIpv6)
+            }.distinct()
         }
         scanners = externalIps.map { ip ->
             MdnsScanner(

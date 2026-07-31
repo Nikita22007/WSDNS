@@ -42,6 +42,8 @@ The `config.json` file is automatically generated on the first run. You can modi
 - `isolatedMode`: (Boolean) Enable/disable Stealth mode globally.
 - `debugMode`: (Boolean) Adds a `-KProxy` suffix to discovered device names for easier identification.
 - `groupServicesByHost`: (Boolean, default `true`) Group all service instances announced by the same mDNS hostname into one Windows device. Set to `false` to publish each service instance as a separate device.
+- `enableIpv4`: (Boolean, default `true`) Enable IPv4 mDNS listening and WSD publishing.
+- `enableIpv6`: (Boolean, default `true`) Enable IPv6 mDNS listening and WSD publishing. At least one IP family must remain enabled.
 
 ### Service Mappings (`mappings`)
 Each entry defines how an mDNS service is presented to Windows:

@@ -18,6 +18,8 @@ data class ProxyConfig(
     val isolatedMode: Boolean = System.getProperty("os.name").contains("Windows", ignoreCase = true),
     val debugMode: Boolean = false,
     val groupServicesByHost: Boolean = true,
+    val enableIpv4: Boolean = true,
+    val enableIpv6: Boolean = true,
     val mappings: List<ServiceMapping> = listOf(
         ServiceMapping("_smb._tcp.local.", "Computers", priority = 100),
         ServiceMapping("_http._tcp.local.", "NetworkInfrastructure", "http://{ip}:{port}", priority = 50),
@@ -25,6 +27,10 @@ data class ProxyConfig(
         ServiceMapping("_ssh._tcp.local.", "NetworkInfrastructure", "ssh://{ip}", priority = 30)
     )
 )
+
+internal fun ProxyConfig.validate() {
+    require(enableIpv4 || enableIpv6) { "At least one of enableIpv4 or enableIpv6 must be true" }
+}
 
 object ConfigManager {
     private val configFile = File("config.json")
