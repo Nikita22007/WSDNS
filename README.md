@@ -62,9 +62,11 @@ Each entry defines how an mDNS service is presented to Windows:
 ## Acknowledgments
 Special thanks to **Google** for the **Gemini** family of AI models and the **Gemini CLI** tool, which made the rapid development and architecture of this project possible.
 
+Thanks to **OpenAI** for **Codex** and **GPT-5.6-sol**, which helped audit, test, and improve the project.
+
 ## License
 Distributed under the **GNU General Public License v3.0**. See `LICENSE` for details.
 
 ---
 **Author**: nikita22007
-**Version**: 1.1.0
+**Version**: 2.0.0
