@@ -135,7 +135,7 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
     }
 
     private fun sendHello(device: WsdDevice) {
-        val xAddr = "http://${httpHost()}:$actualHttpPort/${device.uuid}"
+        val xAddr = "http://${localAddress.httpHost()}:$actualHttpPort/${device.uuid}"
         val types = if (device.category == "Computers") "wsdp:Device pub:Computer" else "wsdp:Device"
         val xml = """<?xml version="1.0" encoding="utf-8"?>
 $envelopeHeader
@@ -188,7 +188,7 @@ $envelopeHeader
     }
 
     private fun sendProbeMatch(address: InetAddress, port: Int, device: WsdDevice, relatesTo: String) {
-        val xAddr = "http://${httpHost()}:$actualHttpPort/${device.uuid}"
+        val xAddr = "http://${localAddress.httpHost()}:$actualHttpPort/${device.uuid}"
         val types = if (device.category == "Computers") "wsdp:Device pub:Computer" else "wsdp:Device"
         val xml = """<?xml version="1.0" encoding="utf-8"?>
 $envelopeHeader
@@ -224,8 +224,6 @@ $envelopeHeader
             socket.send(DatagramPacket(bytes, bytes.size, address, port))
         }
     }
-
-    private fun httpHost(): String = if (localAddress is Inet6Address) "[$localIp]" else localIp
 
     private fun generateMetadataXml(device: WsdDevice, relatesTo: String): String {
         val presentationUrl = device.presentationUrl

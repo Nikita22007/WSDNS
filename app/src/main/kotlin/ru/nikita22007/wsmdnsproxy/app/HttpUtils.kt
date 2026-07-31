@@ -2,6 +2,8 @@ package ru.nikita22007.wsmdnsproxy.app
 
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.net.Inet6Address
+import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 
 internal class PayloadTooLargeException : Exception()
@@ -19,3 +21,6 @@ internal fun InputStream.readUtf8Limited(maxBytes: Int): String {
     }
     return output.toString(StandardCharsets.UTF_8.name())
 }
+
+internal fun InetAddress.httpHost(): String =
+    if (this is Inet6Address) "[${hostAddress.replace("%", "%25")}]" else hostAddress
