@@ -8,6 +8,8 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlin.concurrent.thread
 
 class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
@@ -127,7 +129,7 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.log(Level.SEVERE, "WSD listener failed on $localIp", e)
             }
         }
     }
@@ -156,7 +158,9 @@ $envelopeHeader
         try {
             val bytes = xml.toByteArray()
             sendDatagram(bytes, multicastAddr, wsdPort)
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            logger.log(Level.WARNING, "Failed to send WSD Hello for ${device.uuid} on $localIp", e)
+        }
     }
 
     private fun sendBye(device: WsdDevice) {
@@ -178,7 +182,9 @@ $envelopeHeader
         try {
             val bytes = xml.toByteArray()
             sendDatagram(bytes, multicastAddr, wsdPort)
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            logger.log(Level.WARNING, "Failed to send WSD Bye for ${device.uuid} on $localIp", e)
+        }
     }
 
     private fun sendProbeMatch(address: InetAddress, port: Int, device: WsdDevice, relatesTo: String) {
@@ -208,7 +214,9 @@ $envelopeHeader
         try {
             val bytes = xml.toByteArray()
             sendDatagram(bytes, address, port)
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            logger.log(Level.WARNING, "Failed to send WSD ProbeMatch for ${device.uuid} on $localIp", e)
+        }
     }
 
     private fun sendDatagram(bytes: ByteArray, address: InetAddress, port: Int) {
@@ -270,5 +278,6 @@ $envelopeHeader
 
     private companion object {
         const val MAX_METADATA_REQUEST_BYTES = 64 * 1024
+        val logger: Logger = Logger.getLogger(WsdResponder::class.java.name)
     }
 }
