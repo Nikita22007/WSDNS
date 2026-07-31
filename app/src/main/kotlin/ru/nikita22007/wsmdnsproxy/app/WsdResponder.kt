@@ -85,8 +85,9 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
         thread {
             try {
                 val socket = MulticastSocket(wsdPort)
-                socket.networkInterface = NetworkInterface.getByInetAddress(InetAddress.getByName(localIp))
-                socket.joinGroup(multicastAddr)
+                val networkInterface = NetworkInterface.getByInetAddress(InetAddress.getByName(localIp))
+                socket.networkInterface = networkInterface
+                socket.joinGroup(InetSocketAddress(multicastAddr, wsdPort), networkInterface)
 
                 val buffer = ByteArray(8192)
                 while (true) {
@@ -132,7 +133,7 @@ $envelopeHeader
 
         try {
             val bytes = xml.toByteArray()
-            DatagramSocket().use { it.send(DatagramPacket(bytes, bytes.size, multicastAddr, wsdPort)) }
+            sendDatagram(bytes, multicastAddr, wsdPort)
         } catch (e: Exception) {}
     }
 
@@ -162,8 +163,14 @@ $envelopeHeader
 
         try {
             val bytes = xml.toByteArray()
-            DatagramSocket().use { it.send(DatagramPacket(bytes, bytes.size, address, port)) }
+            sendDatagram(bytes, address, port)
         } catch (e: Exception) {}
+    }
+
+    private fun sendDatagram(bytes: ByteArray, address: InetAddress, port: Int) {
+        DatagramSocket(InetSocketAddress(InetAddress.getByName(localIp), 0)).use { socket ->
+            socket.send(DatagramPacket(bytes, bytes.size, address, port))
+        }
     }
 
     private fun generateMetadataXml(device: WsdDevice, relatesTo: String): String {
