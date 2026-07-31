@@ -9,3 +9,6 @@ build
 
 # Ignore local IDE configuration
 .idea/
+
+# Runtime configuration generated on first launch
+/config.json
