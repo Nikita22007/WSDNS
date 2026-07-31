@@ -1,5 +1,4 @@
 # WSDNS (mDNS to WS-Discovery Proxy)
-[![Build and Release](https://github.com/Nikita22007/WSDNS/actions/workflows/build.yml/badge.svg)](https://github.com/Nikita22007/WSDNS/actions/workflows/build.yml)
 
 **WSDNS** is a lightweight, cross-platform bridge that makes mDNS/Bonjour-enabled devices (like Raspberry Pi, NAS, or IoT gadgets) visible in the **Windows Explorer Network** environment using the WS-Discovery protocol.
 
@@ -11,6 +10,10 @@
     - **Linux/Others**: Defaults to `false`. Acts as a network-wide bridge for all Windows clients in the same subnet.
 - **Dynamic Configuration**: Customize mappings, categories, and URL templates via `config.json`.
 - **Lightweight**: Built with Kotlin and Java's native `HttpServer`, optimized for GraalVM Native Image.
+
+## Download
+
+Download the native executable for your platform or the cross-platform fat JAR from the [latest GitHub release](https://github.com/Nikita22007/WSDNS/releases/latest).
 
 ## Usage
 ### Running the JAR
