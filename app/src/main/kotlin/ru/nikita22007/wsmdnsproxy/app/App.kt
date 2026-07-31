@@ -1,7 +1,13 @@
 package ru.nikita22007.wsmdnsproxy.app
 
 fun main(args: Array<String>) {
-    val cliArgs = CliParser.parse(args)
+    val cliArgs = try {
+        CliParser.parse(args)
+    } catch (e: CliUsageException) {
+        System.err.println("Error: ${e.message}")
+        System.err.println("Use --help or /help for usage.")
+        return
+    }
 
     if (cliArgs.showHelp) {
         CliParser.printHelp()
