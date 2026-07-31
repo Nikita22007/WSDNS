@@ -145,7 +145,7 @@ internal fun deviceIdentity(info: MdnsServiceInfo, groupByHost: Boolean): String
     if (groupByHost) {
         "host:${info.hostname.lowercase()}"
     } else {
-        "service:${info.hostname.lowercase()}|${info.type.lowercase()}|${info.name.lowercase()}"
+        "service:${info.hostname.lowercase()}|${info.type.lowercase()}|${info.name.lowercase()}|${info.port}"
     }
 
 internal fun selectPreferredService(

@@ -19,6 +19,12 @@ class DeviceIdentityTest {
     }
 
     @Test
+    fun `keeps identical service instances on different ports separate`() {
+        val alternatePort = smb.copy(port = 1445)
+        assertNotEquals(deviceIdentity(smb, false), deviceIdentity(alternatePort, false))
+    }
+
+    @Test
     fun `falls back to remaining service when preferred service disappears`() {
         val mappings = listOf(
             ServiceMapping("_smb._tcp.local.", "Computers", priority = 100),
