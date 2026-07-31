@@ -143,7 +143,7 @@ $envelopeHeader
         <wsa:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>
         <wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches</wsa:Action>
         <wsa:MessageID>urn:uuid:${UUID.randomUUID()}</wsa:MessageID>
-        <wsa:RelatesTo>$relatesTo</wsa:RelatesTo>
+        <wsa:RelatesTo>${relatesTo.xmlText()}</wsa:RelatesTo>
         <wsd:AppSequence InstanceId="$instanceId" SequenceId="$sequenceId" MessageNumber="${messageCount++}" />
     </soap:Header>
     <soap:Body>
@@ -165,13 +165,14 @@ $envelopeHeader
     }
 
     private fun generateMetadataXml(device: WsdDevice, relatesTo: String): String {
-        val presentationUrlXml = if (device.presentationUrl != null) {
-            "\n                    <wsdp:PresentationUrl>${device.presentationUrl}</wsdp:PresentationUrl>"
+        val presentationUrl = device.presentationUrl
+        val presentationUrlXml = if (presentationUrl != null) {
+            "\n                    <wsdp:PresentationUrl>${presentationUrl.xmlText()}</wsdp:PresentationUrl>"
         } else ""
 
         val hostTypes = if (device.category == "Computers") "pub:Computer" else "wsdp:Device"
         val pubComputerXml = if (device.category == "Computers") {
-            "\n                        <pub:Computer>${device.realHostname}.local/Workgroup:${device.workgroup}</pub:Computer>"
+            "\n                        <pub:Computer>${device.realHostname.xmlText()}.local/Workgroup:${device.workgroup.xmlText()}</pub:Computer>"
         } else ""
 
         return """<?xml version="1.0" encoding="utf-8"?>
@@ -180,7 +181,7 @@ $envelopeHeader
         <wsa:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>
         <wsa:Action>http://schemas.xmlsoap.org/ws/2004/09/transfer/GetResponse</wsa:Action>
         <wsa:MessageID>urn:uuid:${UUID.randomUUID()}</wsa:MessageID>
-        <wsa:RelatesTo>$relatesTo</wsa:RelatesTo>
+        <wsa:RelatesTo>${relatesTo.xmlText()}</wsa:RelatesTo>
     </soap:Header>
     <soap:Body>
         <wsx:Metadata xmlns:wsx="http://schemas.xmlsoap.org/ws/2004/09/mex">
@@ -188,12 +189,12 @@ $envelopeHeader
                 <wsdp:ThisModel>
                     <wsdp:Manufacturer>Kotlin-mDNS-Proxy</wsdp:Manufacturer>
                     <wsdp:ModelName>Virtual Computer</wsdp:ModelName>$presentationUrlXml
-                    <pnpx:DeviceCategory>${device.category}</pnpx:DeviceCategory>
+                    <pnpx:DeviceCategory>${device.category.xmlText()}</pnpx:DeviceCategory>
                 </wsdp:ThisModel>
             </wsx:MetadataSection>
             <wsx:MetadataSection Dialect="http://schemas.xmlsoap.org/ws/2006/02/devprof/ThisDevice">
                 <wsdp:ThisDevice>
-                    <wsdp:FriendlyName>${device.name}</wsdp:FriendlyName>
+                    <wsdp:FriendlyName>${device.name.xmlText()}</wsdp:FriendlyName>
                     <wsdp:FirmwareVersion>1.0</wsdp:FirmwareVersion>
                     <wsdp:SerialNumber>1</wsdp:SerialNumber>
                 </wsdp:ThisDevice>
