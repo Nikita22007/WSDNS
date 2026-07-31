@@ -15,13 +15,25 @@
 ## Usage
 ### Running the JAR
 ```bash
-java -jar wsdns-all.jar
+java -jar wsdns-{version}-all.jar
 ```
 
 ### CLI Options
 - `/public`, `--public`: Disable Stealth mode (visible to the whole network).
-- `/i`, `-i`, `--interface IP[:PORT]`: Bind to a specific interface.
+- `-l`, `--listen-interface`, `/l`, `/listen TARGET`: Listen for mDNS on an interface name or local IP. Repeatable.
+- `-p`, `--publish-interface`, `/p`, `/publish TARGET [PORT]`: Publish WSD on an interface name or local IP. Repeatable; each interface may have its own HTTP port.
+- `-i`, `--interface`, `/i`, `/interface TARGET [PORT]`: Legacy alias for `--publish-interface`.
 - `/h`, `--help`: Show help and configuration guide.
+
+Both IPv4 and IPv6 addresses are supported. If no listen interface is specified, all active interfaces are scanned. In public mode, WSD is published on every active interface unless publish interfaces are explicitly selected.
+
+```bash
+# Unix-style options
+java -jar wsdns-{version}-all.jar --public -l eth0 -p eth0 5357 -p wlan0 5358
+
+# Windows-style options; quote interface names containing spaces
+java -jar wsdns-{version}-all.jar /public /l "Wi-Fi" /p "Wi-Fi" 5357
+```
 
 ## Configuration Guide (`config.json`)
 The `config.json` file is automatically generated on the first run. You can modify it to suit your needs.

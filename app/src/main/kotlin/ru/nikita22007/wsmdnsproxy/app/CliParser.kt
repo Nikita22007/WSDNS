@@ -10,7 +10,7 @@ data class CliArgs(
 data class InterfaceRequest(val target: String, val port: Int = 0)
 
 object CliParser {
-    fun parse(args: Array<String>, defaultIsolated: Boolean): CliArgs {
+    fun parse(args: Array<String>): CliArgs {
         var isolatedMode: Boolean? = null
         val listenInterfaces = mutableListOf<String>()
         val publishInterfaces = mutableListOf<InterfaceRequest>()
@@ -51,7 +51,7 @@ object CliParser {
             Bridge mDNS services to Windows Network Explorer
             
             Usage:
-              java -jar wsdns-all.jar [options]
+              java -jar wsdns-{version}-all.jar [options]
             
             Options:
               /public, --public         Enable PUBLIC mode (visible to all network). 

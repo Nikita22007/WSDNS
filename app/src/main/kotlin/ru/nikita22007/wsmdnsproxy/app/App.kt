@@ -1,8 +1,7 @@
 package ru.nikita22007.wsmdnsproxy.app
 
 fun main(args: Array<String>) {
-    val isWindows = System.getProperty("os.name").contains("Windows", ignoreCase = true)
-    val cliArgs = CliParser.parse(args, isWindows)
+    val cliArgs = CliParser.parse(args)
 
     if (cliArgs.showHelp) {
         CliParser.printHelp()
