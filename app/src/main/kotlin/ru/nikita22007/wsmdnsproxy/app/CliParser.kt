@@ -2,16 +2,18 @@ package ru.nikita22007.wsmdnsproxy.app
 
 data class CliArgs(
     val isolatedMode: Boolean?,
-    val requestedInterfaces: List<InterfaceRequest>,
+    val listenInterfaces: List<String>,
+    val publishInterfaces: List<InterfaceRequest>,
     val showHelp: Boolean
 )
 
-data class InterfaceRequest(val ip: String, val port: Int = 0)
+data class InterfaceRequest(val target: String, val port: Int = 0)
 
 object CliParser {
     fun parse(args: Array<String>, defaultIsolated: Boolean): CliArgs {
         var isolatedMode: Boolean? = null
-        val requestedInterfaces = mutableListOf<InterfaceRequest>()
+        val listenInterfaces = mutableListOf<String>()
+        val publishInterfaces = mutableListOf<InterfaceRequest>()
         var showHelp = false
 
         var i = 0
@@ -20,19 +22,27 @@ object CliParser {
             when {
                 arg in listOf("-h", "--help", "/h", "/help", "-?", "/?") -> showHelp = true
                 arg in listOf("--public", "/public") -> isolatedMode = false
-                arg in listOf("-i", "--interface", "/i", "/interface") -> {
+                arg in listOf("-l", "--listen-interface", "/l", "/listen", "/listen-interface") -> {
                     if (i + 1 < args.size) {
-                        val value = args[++i]
-                        val parts = value.split(":")
-                        val ip = parts[0]
-                        val port = parts.getOrNull(1)?.toIntOrNull() ?: 0
-                        requestedInterfaces.add(InterfaceRequest(ip, port))
+                        listenInterfaces.add(args[++i])
+                    }
+                }
+                arg in listOf("-p", "--publish-interface", "/p", "/publish", "/publish-interface",
+                    "-i", "--interface", "/i", "/interface") -> {
+                    if (i + 1 < args.size) {
+                        val target = args[++i]
+                        val port = args.getOrNull(i + 1)?.toIntOrNull()
+                        if (port != null) {
+                            require(port in 0..65535) { "Port must be between 0 and 65535" }
+                            i++
+                        }
+                        publishInterfaces.add(InterfaceRequest(target, port ?: 0))
                     }
                 }
             }
             i++
         }
-        return CliArgs(isolatedMode, requestedInterfaces, showHelp)
+        return CliArgs(isolatedMode, listenInterfaces, publishInterfaces, showHelp)
     }
 
     fun printHelp() {
@@ -46,9 +56,13 @@ object CliParser {
             Options:
               /public, --public         Enable PUBLIC mode (visible to all network). 
                                         Default: Isolated (Stealth) on Windows, Public on Linux/Others.
-              /i, -i, --interface IP[:PORT] 
-                                        Bind to specific interface. Disables auto-lookup.
-                                        Port is optional (random if omitted).
+              /l, -l, --listen-interface TARGET
+                                        Listen for mDNS on an interface name or IP.
+              /p, -p, --publish-interface TARGET [PORT]
+                                        Publish WSD on an interface name or IP.
+                                        Repeat for multiple interfaces; port defaults to random.
+              /i, -i, --interface TARGET [PORT]
+                                        Legacy alias for --publish-interface.
               /h, --help, /?, -h        Show this help and configuration guide.
 
             Stealth Mode (Isolated):

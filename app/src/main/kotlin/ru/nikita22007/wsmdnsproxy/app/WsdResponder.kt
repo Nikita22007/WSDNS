@@ -17,7 +17,10 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
     private var actualHttpPort = 0
     private var httpServer: HttpServer? = null
 
-    private val multicastAddr = InetAddress.getByName("239.255.255.250")
+    private val localAddress = InetAddress.getByName(localIp)
+    private val multicastAddr = InetAddress.getByName(
+        if (localAddress is Inet6Address) "ff02::c" else "239.255.255.250"
+    )
     private val wsdPort = 3702
 
     private val envelopeHeader = """<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsd="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:wsdp="http://schemas.xmlsoap.org/ws/2006/02/devprof" xmlns:pub="http://schemas.microsoft.com/windows/pub/2005/07" xmlns:pnpx="http://schemas.microsoft.com/windows/pnpx/2005/10">"""
@@ -44,7 +47,7 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
     }
 
     private fun startHttpServer() {
-        val server = HttpServer.create(InetSocketAddress(localIp, fixedHttpPort), 0)
+        val server = HttpServer.create(InetSocketAddress(localAddress, fixedHttpPort), 0)
         server.createContext("/") { exchange ->
             handleMetadataRequest(exchange)
         }
@@ -85,7 +88,7 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
         thread {
             try {
                 val socket = MulticastSocket(wsdPort)
-                val networkInterface = NetworkInterface.getByInetAddress(InetAddress.getByName(localIp))
+                val networkInterface = NetworkInterface.getByInetAddress(localAddress)
                 socket.networkInterface = networkInterface
                 socket.joinGroup(InetSocketAddress(multicastAddr, wsdPort), networkInterface)
 
@@ -111,7 +114,7 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
     }
 
     private fun sendHello(device: WsdDevice) {
-        val xAddr = "http://$localIp:$actualHttpPort/${device.uuid}"
+        val xAddr = "http://${httpHost()}:$actualHttpPort/${device.uuid}"
         val types = if (device.category == "Computers") "wsdp:Device pub:Computer" else "wsdp:Device"
         val xml = """<?xml version="1.0" encoding="utf-8"?>
 $envelopeHeader
@@ -138,7 +141,7 @@ $envelopeHeader
     }
 
     private fun sendProbeMatch(address: InetAddress, port: Int, device: WsdDevice, relatesTo: String) {
-        val xAddr = "http://$localIp:$actualHttpPort/${device.uuid}"
+        val xAddr = "http://${httpHost()}:$actualHttpPort/${device.uuid}"
         val types = if (device.category == "Computers") "wsdp:Device pub:Computer" else "wsdp:Device"
         val xml = """<?xml version="1.0" encoding="utf-8"?>
 $envelopeHeader
@@ -168,10 +171,12 @@ $envelopeHeader
     }
 
     private fun sendDatagram(bytes: ByteArray, address: InetAddress, port: Int) {
-        DatagramSocket(InetSocketAddress(InetAddress.getByName(localIp), 0)).use { socket ->
+        DatagramSocket(InetSocketAddress(localAddress, 0)).use { socket ->
             socket.send(DatagramPacket(bytes, bytes.size, address, port))
         }
     }
+
+    private fun httpHost(): String = if (localAddress is Inet6Address) "[$localIp]" else localIp
 
     private fun generateMetadataXml(device: WsdDevice, relatesTo: String): String {
         val presentationUrl = device.presentationUrl

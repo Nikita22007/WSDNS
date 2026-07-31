@@ -3,7 +3,11 @@ package ru.nikita22007.wsmdnsproxy.app
 import java.util.concurrent.ConcurrentHashMap
 import java.lang.Thread.sleep
 
-class ProxyOrchestrator(private val config: ProxyConfig, private val interfaces: List<InterfaceRequest>) {
+class ProxyOrchestrator(
+    private val config: ProxyConfig,
+    private val listenInterfaces: List<String>,
+    private val publishInterfaces: List<InterfaceRequest>
+) {
     private val activeDevices = ConcurrentHashMap<String, String>()
     private lateinit var responders: List<WsdResponder>
     private lateinit var scanners: List<MdnsScanner>
@@ -15,15 +19,21 @@ class ProxyOrchestrator(private val config: ProxyConfig, private val interfaces:
         // 1. Инициализируем респондеры
         responders = if (isolated) {
             println("WSD Responder started in ISOLATED mode.")
-            listOf(WsdResponder("127.0.0.1", interfaces.firstOrNull()?.port ?: 0))
+            listOf(WsdResponder("127.0.0.1", publishInterfaces.firstOrNull()?.port ?: 0))
         } else {
-            interfaces.map { WsdResponder(it.ip, it.port) }
+            publishInterfaces.flatMap { request ->
+                NetworkUtils.resolveAddresses(request.target).map { WsdResponder(it, request.port) }
+            }
         }
 
         val mDNSTypes = config.mappings.map { it.mdnsType }.distinct()
 
         // 2. Инициализируем сканеры
-        val externalIps = NetworkUtils.getLocalIps()
+        val externalIps = if (listenInterfaces.isEmpty()) {
+            NetworkUtils.getLocalIps()
+        } else {
+            listenInterfaces.flatMap(NetworkUtils::resolveAddresses).distinct()
+        }
         scanners = externalIps.map { ip ->
             MdnsScanner(ip, mDNSTypes) { info -> handleDiscoveredService(info) }
         }

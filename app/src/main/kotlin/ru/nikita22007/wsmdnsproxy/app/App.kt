@@ -16,8 +16,8 @@ fun main(args: Array<String>) {
     )
     
     // 2. Определяем интерфейсы (ручные или авто)
-    val interfacesToUse = if (cliArgs.requestedInterfaces.isNotEmpty()) {
-        cliArgs.requestedInterfaces
+    val interfacesToUse = if (cliArgs.publishInterfaces.isNotEmpty()) {
+        cliArgs.publishInterfaces
     } else {
         NetworkUtils.getLocalIps().map { InterfaceRequest(it) }
     }
@@ -28,5 +28,5 @@ fun main(args: Array<String>) {
     }
 
     // 3. Запускаем оркестратор
-    ProxyOrchestrator(finalConfig, interfacesToUse).run()
+    ProxyOrchestrator(finalConfig, cliArgs.listenInterfaces, interfacesToUse).run()
 }
