@@ -4,14 +4,16 @@ import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.net.*
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 
 class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
-    private val devices = mutableMapOf<String, WsdDevice>()
+    private val devices = ConcurrentHashMap<String, WsdDevice>()
     private val instanceId = System.currentTimeMillis() / 1000
     private val sequenceId = "urn:uuid:${UUID.randomUUID()}"
-    private var messageCount = 1
+    private val messageCount = AtomicLong(1)
     private var actualHttpPort = 0
     private var httpServer: HttpServer? = null
 
@@ -116,7 +118,7 @@ $envelopeHeader
         <wsa:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</wsa:To>
         <wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Hello</wsa:Action>
         <wsa:MessageID>urn:uuid:${UUID.randomUUID()}</wsa:MessageID>
-        <wsd:AppSequence InstanceId="$instanceId" SequenceId="$sequenceId" MessageNumber="${messageCount++}" />
+        <wsd:AppSequence InstanceId="$instanceId" SequenceId="$sequenceId" MessageNumber="${messageCount.getAndIncrement()}" />
     </soap:Header>
     <soap:Body>
         <wsd:Hello>
@@ -144,7 +146,7 @@ $envelopeHeader
         <wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches</wsa:Action>
         <wsa:MessageID>urn:uuid:${UUID.randomUUID()}</wsa:MessageID>
         <wsa:RelatesTo>${relatesTo.xmlText()}</wsa:RelatesTo>
-        <wsd:AppSequence InstanceId="$instanceId" SequenceId="$sequenceId" MessageNumber="${messageCount++}" />
+        <wsd:AppSequence InstanceId="$instanceId" SequenceId="$sequenceId" MessageNumber="${messageCount.getAndIncrement()}" />
     </soap:Header>
     <soap:Body>
         <wsd:ProbeMatches>
