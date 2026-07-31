@@ -3,6 +3,7 @@ package ru.nikita22007.wsmdnsproxy.app
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import java.net.*
+import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -67,28 +68,39 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
     }
 
     private fun handleMetadataRequest(exchange: HttpExchange) {
-        val uuid = exchange.requestURI.path.trim('/')
-        val device = devices[uuid]
-        
-        if (device == null) {
-            exchange.sendResponseHeaders(404, -1)
+        try {
+            if (exchange.requestMethod != "POST") {
+                exchange.responseHeaders.set("Allow", "POST")
+                exchange.sendResponseHeaders(405, -1)
+                return
+            }
+
+            val uuid = exchange.requestURI.path.trim('/')
+            val device = devices[uuid]
+            if (device == null) {
+                exchange.sendResponseHeaders(404, -1)
+                return
+            }
+
+            val body = try {
+                exchange.requestBody.readUtf8Limited(MAX_METADATA_REQUEST_BYTES)
+            } catch (_: PayloadTooLargeException) {
+                exchange.sendResponseHeaders(413, -1)
+                return
+            }
+            val messageIdMatch = Regex("<(?:.*?:)?MessageID>(.*?)</(?:.*?:)?MessageID>").find(body)
+            val messageId = messageIdMatch?.groupValues?.get(1) ?: ""
+
+            val remoteAddress = exchange.remoteAddress.address.hostAddress
+            println(">>> Metadata request (${exchange.requestMethod}) from $remoteAddress for ${device.name}. RelatesTo: $messageId")
+
+            val responseBytes = generateMetadataXml(device, messageId).toByteArray(StandardCharsets.UTF_8)
+            exchange.responseHeaders.set("Content-Type", "application/soap+xml; charset=utf-8")
+            exchange.sendResponseHeaders(200, responseBytes.size.toLong())
+            exchange.responseBody.use { it.write(responseBytes) }
+        } finally {
             exchange.close()
-            return
         }
-
-        val body = exchange.requestBody.bufferedReader().readText()
-        val messageIdMatch = Regex("<(?:.*?:)?MessageID>(.*?)</(?:.*?:)?MessageID>").find(body)
-        val messageId = messageIdMatch?.groupValues?.get(1) ?: ""
-        
-        val remoteAddress = exchange.remoteAddress.address.hostAddress
-        println(">>> Metadata request (${exchange.requestMethod}) from $remoteAddress for ${device.name}. RelatesTo: $messageId")
-        
-        val responseXml = generateMetadataXml(device, messageId)
-        val responseBytes = responseXml.toByteArray()
-
-        exchange.responseHeaders.set("Content-Type", "application/soap+xml")
-        exchange.sendResponseHeaders(200, responseBytes.size.toLong())
-        exchange.responseBody.use { it.write(responseBytes) }
     }
 
     private fun startUdpListener() {
@@ -254,5 +266,9 @@ $envelopeHeader
         </wsx:Metadata>
     </soap:Body>
 </soap:Envelope>""".trimIndent()
+    }
+
+    private companion object {
+        const val MAX_METADATA_REQUEST_BYTES = 64 * 1024
     }
 }
