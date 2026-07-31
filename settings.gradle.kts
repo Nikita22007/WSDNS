@@ -11,4 +11,4 @@ plugins {
 }
 
 rootProject.name = "WSDNS"
-include("app", "list", "utilities")
+include("app")
