@@ -62,6 +62,7 @@ object CliParser {
             Bridge mDNS services to Windows Network Explorer
             
             Usage:
+              wsdns [options]
               java -jar wsdns-{version}-all.jar [options]
             
             Options:
