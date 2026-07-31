@@ -17,6 +17,7 @@ data class ServiceMapping(
 data class ProxyConfig(
     val isolatedMode: Boolean = System.getProperty("os.name").contains("Windows", ignoreCase = true),
     val debugMode: Boolean = false,
+    val groupServicesByHost: Boolean = true,
     val mappings: List<ServiceMapping> = listOf(
         ServiceMapping("_smb._tcp.local.", "Computers", priority = 100),
         ServiceMapping("_http._tcp.local.", "NetworkInfrastructure", "http://{ip}:{port}", priority = 50),

@@ -7,6 +7,7 @@ import java.net.InetAddress
 
 data class MdnsServiceInfo(
     val name: String,
+    val hostname: String,
     val type: String,
     val ip: String,
     val port: Int
@@ -28,9 +29,14 @@ class MdnsScanner(val localIp: String, val serviceTypes: List<String>, val onSer
             override fun serviceResolved(event: ServiceEvent) {
                 val ip = event.info.hostAddresses.firstOrNull() ?: return
                 val cleanName = event.name.split(".").first().split("@").last().uppercase()
+                val hostname = event.info.server
+                    .removeSuffix(".")
+                    .removeSuffix(".local")
+                    .ifBlank { cleanName }
                 
                 onServiceFound(MdnsServiceInfo(
                     name = cleanName,
+                    hostname = hostname,
                     type = event.type,
                     ip = ip,
                     port = event.info.port

@@ -47,20 +47,22 @@ class ProxyOrchestrator(
 
     private fun handleDiscoveredService(info: MdnsServiceInfo) {
         val name = info.name
-        val displayName = if (config.debugMode) "$name-KProxy" else name
+        val identity = deviceIdentity(info, config.groupServicesByHost)
+        val baseDisplayName = if (config.groupServicesByHost) info.hostname.uppercase() else name
+        val displayName = if (config.debugMode) "$baseDisplayName-KProxy" else baseDisplayName
         
         // Генерируем стабильный UUID на основе реального имени хоста
-        val deviceUuid = java.util.UUID.nameUUIDFromBytes(name.toByteArray()).toString()
+        val deviceUuid = java.util.UUID.nameUUIDFromBytes(identity.toByteArray()).toString()
         
         val mapping = config.mappings
             .filter { it.mdnsType == info.type }
             .maxByOrNull { it.priority } ?: return
 
-        val existingUuid = activeDevices[name]
+        val existingUuid = activeDevices[identity]
         val device = if (existingUuid != null) {
-            responders.first().getDevice(existingUuid) ?: WsdDevice(uuid = deviceUuid, name = displayName, realHostname = name)
+            responders.first().getDevice(existingUuid) ?: WsdDevice(uuid = deviceUuid, name = displayName, realHostname = info.hostname)
         } else {
-            WsdDevice(uuid = deviceUuid, name = displayName, realHostname = name)
+            WsdDevice(uuid = deviceUuid, name = displayName, realHostname = info.hostname)
         }
 
         var updated = false
@@ -86,7 +88,7 @@ class ProxyOrchestrator(
 
         if (existingUuid == null) {
             println(">>> New device discovered: $name (${device.category})")
-            activeDevices[name] = device.uuid
+            activeDevices[identity] = device.uuid
             responders.forEach { it.addDevice(device) }
         } else if (updated) {
             println(">>> Updating metadata for device: $name")
@@ -97,3 +99,10 @@ class ProxyOrchestrator(
         }
     }
 }
+
+internal fun deviceIdentity(info: MdnsServiceInfo, groupByHost: Boolean): String =
+    if (groupByHost) {
+        "host:${info.hostname.lowercase()}"
+    } else {
+        "service:${info.hostname.lowercase()}|${info.type.lowercase()}|${info.name.lowercase()}"
+    }
