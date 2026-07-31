@@ -36,7 +36,14 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
     }
 
     fun removeDevice(uuid: String) {
-        devices.remove(uuid)
+        val device = devices.remove(uuid) ?: return
+        thread {
+            repeat(3) {
+                if (devices.containsKey(uuid)) return@thread
+                sendBye(device)
+                Thread.sleep(200)
+            }
+        }
     }
 
     fun getDevice(uuid: String): WsdDevice? = devices[uuid]
@@ -131,6 +138,28 @@ $envelopeHeader
             <wsd:XAddrs>$xAddr</wsd:XAddrs>
             <wsd:MetadataVersion>1</wsd:MetadataVersion>
         </wsd:Hello>
+    </soap:Body>
+</soap:Envelope>""".trimIndent()
+
+        try {
+            val bytes = xml.toByteArray()
+            sendDatagram(bytes, multicastAddr, wsdPort)
+        } catch (e: Exception) {}
+    }
+
+    private fun sendBye(device: WsdDevice) {
+        val xml = """<?xml version="1.0" encoding="utf-8"?>
+$envelopeHeader
+    <soap:Header>
+        <wsa:To>urn:schemas-xmlsoap-org:ws:2005:04:discovery</wsa:To>
+        <wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/Bye</wsa:Action>
+        <wsa:MessageID>urn:uuid:${UUID.randomUUID()}</wsa:MessageID>
+        <wsd:AppSequence InstanceId="$instanceId" SequenceId="$sequenceId" MessageNumber="${messageCount.getAndIncrement()}" />
+    </soap:Header>
+    <soap:Body>
+        <wsd:Bye>
+            <wsa:EndpointReference><wsa:Address>${device.endpointReference}</wsa:Address></wsa:EndpointReference>
+        </wsd:Bye>
     </soap:Body>
 </soap:Envelope>""".trimIndent()
 

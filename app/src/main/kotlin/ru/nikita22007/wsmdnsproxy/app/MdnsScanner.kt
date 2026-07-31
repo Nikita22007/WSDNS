@@ -6,6 +6,7 @@ import javax.jmdns.ServiceListener
 import java.net.InetAddress
 
 data class MdnsServiceInfo(
+    val key: MdnsServiceKey,
     val name: String,
     val hostname: String,
     val type: String,
@@ -13,7 +14,14 @@ data class MdnsServiceInfo(
     val port: Int
 )
 
-class MdnsScanner(val localIp: String, val serviceTypes: List<String>, val onServiceFound: (MdnsServiceInfo) -> Unit) {
+data class MdnsServiceKey(val scannerIp: String, val type: String, val instanceName: String)
+
+class MdnsScanner(
+    val localIp: String,
+    val serviceTypes: List<String>,
+    val onServiceFound: (MdnsServiceInfo) -> Unit,
+    val onServiceRemoved: (MdnsServiceKey) -> Unit
+) {
     private var jmdns: JmDNS? = null
 
     fun start() {
@@ -24,7 +32,9 @@ class MdnsScanner(val localIp: String, val serviceTypes: List<String>, val onSer
                 jmdns?.requestServiceInfo(event.type, event.name)
             }
 
-            override fun serviceRemoved(event: ServiceEvent) {}
+            override fun serviceRemoved(event: ServiceEvent) {
+                onServiceRemoved(serviceKey(event))
+            }
 
             override fun serviceResolved(event: ServiceEvent) {
                 val ip = event.info.hostAddresses.firstOrNull() ?: return
@@ -35,6 +45,7 @@ class MdnsScanner(val localIp: String, val serviceTypes: List<String>, val onSer
                     .ifBlank { cleanName }
                 
                 onServiceFound(MdnsServiceInfo(
+                    key = serviceKey(event),
                     name = cleanName,
                     hostname = hostname,
                     type = event.type,
@@ -50,6 +61,12 @@ class MdnsScanner(val localIp: String, val serviceTypes: List<String>, val onSer
         
         println("mDNS Scanner started on $localIp (listening ${serviceTypes.size} types)")
     }
+
+    private fun serviceKey(event: ServiceEvent) = MdnsServiceKey(
+        scannerIp = localIp,
+        type = event.type.lowercase(),
+        instanceName = event.name.lowercase()
+    )
 
     fun stop() { jmdns?.close() }
 }

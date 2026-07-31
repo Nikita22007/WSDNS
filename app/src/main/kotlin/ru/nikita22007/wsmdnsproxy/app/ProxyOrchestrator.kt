@@ -9,6 +9,7 @@ class ProxyOrchestrator(
     private val publishInterfaces: List<InterfaceRequest>
 ) {
     private val activeDevices = ConcurrentHashMap<String, String>()
+    private val activeServices = ConcurrentHashMap<MdnsServiceKey, MdnsServiceInfo>()
     private lateinit var responders: List<WsdResponder>
     private lateinit var scanners: List<MdnsScanner>
 
@@ -35,7 +36,12 @@ class ProxyOrchestrator(
             listenInterfaces.flatMap(NetworkUtils::resolveAddresses).distinct()
         }
         scanners = externalIps.map { ip ->
-            MdnsScanner(ip, mDNSTypes) { info -> handleDiscoveredService(info) }
+            MdnsScanner(
+                ip,
+                mDNSTypes,
+                onServiceFound = ::handleDiscoveredService,
+                onServiceRemoved = ::handleRemovedService
+            )
         }
 
         responders.forEach { it.start() }
@@ -45,57 +51,61 @@ class ProxyOrchestrator(
         while (true) { sleep(1000) }
     }
 
+    @Synchronized
     private fun handleDiscoveredService(info: MdnsServiceInfo) {
-        val name = info.name
-        val identity = deviceIdentity(info, config.groupServicesByHost)
-        val baseDisplayName = if (config.groupServicesByHost) info.hostname.uppercase() else name
-        val displayName = if (config.debugMode) "$baseDisplayName-KProxy" else baseDisplayName
-        
-        // Генерируем стабильный UUID на основе реального имени хоста
-        val deviceUuid = java.util.UUID.nameUUIDFromBytes(identity.toByteArray()).toString()
-        
-        val mapping = config.mappings
-            .filter { it.mdnsType == info.type }
-            .maxByOrNull { it.priority } ?: return
+        val previous = activeServices.put(info.key, info)
+        previous?.let { old ->
+            val oldIdentity = deviceIdentity(old, config.groupServicesByHost)
+            val newIdentity = deviceIdentity(info, config.groupServicesByHost)
+            if (oldIdentity != newIdentity) reconcileDevice(oldIdentity)
+        }
+        reconcileDevice(deviceIdentity(info, config.groupServicesByHost))
+    }
 
+    @Synchronized
+    private fun handleRemovedService(key: MdnsServiceKey) {
+        val removed = activeServices.remove(key) ?: return
+        reconcileDevice(deviceIdentity(removed, config.groupServicesByHost))
+    }
+
+    private fun reconcileDevice(identity: String) {
+        val services = activeServices.values.filter {
+            deviceIdentity(it, config.groupServicesByHost) == identity
+        }
         val existingUuid = activeDevices[identity]
-        val device = if (existingUuid != null) {
-            responders.first().getDevice(existingUuid) ?: WsdDevice(uuid = deviceUuid, name = displayName, realHostname = info.hostname)
-        } else {
-            WsdDevice(uuid = deviceUuid, name = displayName, realHostname = info.hostname)
+
+        if (services.isEmpty()) {
+            if (existingUuid != null) {
+                activeDevices.remove(identity)
+                responders.forEach { it.removeDevice(existingUuid) }
+                println(">>> Device disappeared: $identity")
+            }
+            return
         }
 
-        var updated = false
-        val currentPriority = config.mappings
-            .filter { it.wsdCategory == device.category }
-            .maxByOrNull { it.priority }?.priority ?: -1
+        val (service, mapping) = selectPreferredService(services, config.mappings) ?: return
 
-        if (mapping.priority >= currentPriority) {
-            if (device.category != mapping.wsdCategory) {
-                device.category = mapping.wsdCategory
-                updated = true
-            }
-            val newUrl = mapping.presentationUrlTemplate
-                ?.replace("{ip}", info.ip)
-                ?.replace("{port}", info.port.toString())
-                ?.replace("{name}", name)
+        val baseDisplayName = if (config.groupServicesByHost) service.hostname.uppercase() else service.name
+        val displayName = if (config.debugMode) "$baseDisplayName-KProxy" else baseDisplayName
+        val uuid = java.util.UUID.nameUUIDFromBytes(identity.toByteArray()).toString()
+        val presentationUrl = mapping.presentationUrlTemplate
+            ?.replace("{ip}", service.ip)
+            ?.replace("{port}", service.port.toString())
+            ?.replace("{name}", service.name)
 
-            if (device.presentationUrl != newUrl) {
-                device.presentationUrl = newUrl
-                updated = true
-            }
-        }
+        val existing = existingUuid?.let { responders.first().getDevice(it) }
+        val device = existing ?: WsdDevice(uuid, displayName, service.hostname)
+        val updated = device.category != mapping.wsdCategory || device.presentationUrl != presentationUrl
+        device.category = mapping.wsdCategory
+        device.presentationUrl = presentationUrl
 
         if (existingUuid == null) {
-            println(">>> New device discovered: $name (${device.category})")
-            activeDevices[identity] = device.uuid
+            activeDevices[identity] = uuid
             responders.forEach { it.addDevice(device) }
+            println(">>> New device discovered: $displayName (${device.category})")
         } else if (updated) {
-            println(">>> Updating metadata for device: $name")
-            responders.forEach { 
-                it.removeDevice(device.uuid)
-                it.addDevice(device)
-            }
+            responders.forEach { it.addDevice(device) }
+            println(">>> Updating metadata for device: $displayName")
         }
     }
 }
@@ -106,3 +116,13 @@ internal fun deviceIdentity(info: MdnsServiceInfo, groupByHost: Boolean): String
     } else {
         "service:${info.hostname.lowercase()}|${info.type.lowercase()}|${info.name.lowercase()}"
     }
+
+internal fun selectPreferredService(
+    services: Collection<MdnsServiceInfo>,
+    mappings: Collection<ServiceMapping>
+): Pair<MdnsServiceInfo, ServiceMapping>? = services.mapNotNull { service ->
+    mappings
+        .filter { it.mdnsType == service.type }
+        .maxByOrNull { it.priority }
+        ?.let { service to it }
+}.maxByOrNull { it.second.priority }
