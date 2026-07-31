@@ -32,3 +32,7 @@ version = System.getenv("PROJECT_VERSION") ?: "1.0.0"
 application {
     mainClass = "ru.nikita22007.wsmdnsproxy.app.AppKt"
 }
+
+tasks.shadowJar {
+    archiveBaseName.set("wsdns")
+}

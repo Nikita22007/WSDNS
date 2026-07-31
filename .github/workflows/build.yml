@@ -28,8 +28,8 @@ jobs:
             echo "PROJECT_VERSION=1.1.0" >> $GITHUB_ENV
           fi
 
-      - name: Build Shadow JAR
-        run: ./gradlew :app:shadowJar --no-daemon
+      - name: Test and build Shadow JAR
+        run: ./gradlew check :app:shadowJar --no-daemon
 
       - name: Upload JAR Artifact
         uses: actions/upload-artifact@v4
