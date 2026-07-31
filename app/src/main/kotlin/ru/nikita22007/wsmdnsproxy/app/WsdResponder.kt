@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicLong
 import java.util.logging.Level
 import java.util.logging.Logger
@@ -19,6 +20,9 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
     private val messageCount = AtomicLong(1)
     private var actualHttpPort = 0
     private var httpServer: HttpServer? = null
+    private var httpExecutor: ExecutorService? = null
+    @Volatile private var multicastSocket: MulticastSocket? = null
+    @Volatile private var running = false
 
     private val localAddress = InetAddress.getByName(localIp)
     private val multicastAddr = InetAddress.getByName(
@@ -52,8 +56,24 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
     fun getDevice(uuid: String): WsdDevice? = devices[uuid]
 
     fun start() {
+        running = true
         startHttpServer()
         startUdpListener()
+    }
+
+    fun stop() {
+        if (!running) return
+        running = false
+        devices.values.forEach { device ->
+            repeat(3) { sendBye(device) }
+        }
+        devices.clear()
+        multicastSocket?.close()
+        multicastSocket = null
+        httpServer?.stop(0)
+        httpServer = null
+        httpExecutor?.shutdown()
+        httpExecutor = null
     }
 
     private fun startHttpServer() {
@@ -61,11 +81,13 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
         server.createContext("/") { exchange ->
             handleMetadataRequest(exchange)
         }
-        server.executor = Executors.newSingleThreadExecutor()
+        val executor = Executors.newSingleThreadExecutor()
+        server.executor = executor
         server.start()
         
         actualHttpPort = server.address.port
         httpServer = server
+        httpExecutor = executor
         println("WSD HTTP Server for $localIp started on port $actualHttpPort")
     }
 
@@ -109,12 +131,13 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
         thread {
             try {
                 val socket = MulticastSocket(wsdPort)
+                multicastSocket = socket
                 val networkInterface = NetworkInterface.getByInetAddress(localAddress)
                 socket.networkInterface = networkInterface
                 socket.joinGroup(InetSocketAddress(multicastAddr, wsdPort), networkInterface)
 
                 val buffer = ByteArray(8192)
-                while (true) {
+                while (running) {
                     val packet = DatagramPacket(buffer, buffer.size)
                     socket.receive(packet)
                     val message = String(packet.data, 0, packet.length)
@@ -129,7 +152,10 @@ class WsdResponder(val localIp: String, private val fixedHttpPort: Int = 0) {
                     }
                 }
             } catch (e: Exception) {
-                logger.log(Level.SEVERE, "WSD listener failed on $localIp", e)
+                if (running) logger.log(Level.SEVERE, "WSD listener failed on $localIp", e)
+            } finally {
+                multicastSocket?.close()
+                multicastSocket = null
             }
         }
     }

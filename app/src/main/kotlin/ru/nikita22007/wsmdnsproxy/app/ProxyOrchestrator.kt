@@ -2,6 +2,7 @@ package ru.nikita22007.wsmdnsproxy.app
 
 import java.util.concurrent.ConcurrentHashMap
 import java.lang.Thread.sleep
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ProxyOrchestrator(
     private val config: ProxyConfig,
@@ -12,6 +13,7 @@ class ProxyOrchestrator(
     private val activeServices = ConcurrentHashMap<MdnsServiceKey, MdnsServiceInfo>()
     private lateinit var responders: List<WsdResponder>
     private lateinit var scanners: List<MdnsScanner>
+    private val stopped = AtomicBoolean(false)
 
     fun run() {
         val isolated = config.isolatedMode
@@ -48,7 +50,27 @@ class ProxyOrchestrator(
         scanners.forEach { it.start() }
 
         println("mDNS-WSD Proxy is fully operational.")
-        while (true) { sleep(1000) }
+        val shutdownHook = Thread({ stop() }, "wsdns-shutdown")
+        Runtime.getRuntime().addShutdownHook(shutdownHook)
+        try {
+            while (!stopped.get()) sleep(1000)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        } finally {
+            stop()
+            try {
+                Runtime.getRuntime().removeShutdownHook(shutdownHook)
+            } catch (_: IllegalStateException) {
+                // JVM shutdown is already in progress.
+            }
+        }
+    }
+
+    fun stop() {
+        if (!stopped.compareAndSet(false, true)) return
+        if (::responders.isInitialized) responders.forEach { it.stop() }
+        if (::scanners.isInitialized) scanners.forEach { it.stop() }
+        println("mDNS-WSD Proxy stopped.")
     }
 
     @Synchronized
