@@ -10,7 +10,7 @@ class ProxyOrchestrator(
     private val publishInterfaces: List<InterfaceRequest>
 ) {
     private val activeDevices = ConcurrentHashMap<String, String>()
-    private val activeServices = ConcurrentHashMap<MdnsServiceKey, MdnsServiceInfo>()
+    private val activeServices = ServiceCatalog()
     private lateinit var responders: List<WsdResponder>
     private lateinit var scanners: List<MdnsScanner>
     private val stopped = AtomicBoolean(false)
@@ -82,7 +82,7 @@ class ProxyOrchestrator(
 
     @Synchronized
     private fun handleDiscoveredService(info: MdnsServiceInfo) {
-        val previous = activeServices.put(info.key, info)
+        val previous = activeServices.put(info)
         previous?.let { old ->
             val oldIdentity = deviceIdentity(old, config.groupServicesByHost)
             val newIdentity = deviceIdentity(info, config.groupServicesByHost)
@@ -98,9 +98,7 @@ class ProxyOrchestrator(
     }
 
     private fun reconcileDevice(identity: String) {
-        val services = activeServices.values.filter {
-            deviceIdentity(it, config.groupServicesByHost) == identity
-        }
+        val services = activeServices.forIdentity(identity, config.groupServicesByHost)
         val existingUuid = activeDevices[identity]
 
         if (services.isEmpty()) {
@@ -160,3 +158,14 @@ internal fun selectPreferredService(
 
 internal fun serviceDisplayName(service: MdnsServiceInfo, debugMode: Boolean): String =
     if (debugMode) "${service.name}-KProxy" else service.name
+
+internal class ServiceCatalog {
+    private val services = ConcurrentHashMap<MdnsServiceKey, MdnsServiceInfo>()
+
+    fun put(service: MdnsServiceInfo): MdnsServiceInfo? = services.put(service.key, service)
+
+    fun remove(key: MdnsServiceKey): MdnsServiceInfo? = services.remove(key)
+
+    fun forIdentity(identity: String, groupByHost: Boolean): List<MdnsServiceInfo> =
+        services.values.filter { deviceIdentity(it, groupByHost) == identity }
+}
