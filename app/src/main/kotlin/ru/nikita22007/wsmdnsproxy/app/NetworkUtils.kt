@@ -5,8 +5,16 @@ import java.net.NetworkInterface
 
 object NetworkUtils {
     fun resolveAddresses(target: String): List<String> {
-        val networkInterface = NetworkInterface.getByName(target)
-        if (networkInterface != null) return usableAddresses(networkInterface)
+        val matchingInterfaces = localInterfaces().filter {
+            target.equals(it.name, ignoreCase = true) || target.equals(it.displayName, ignoreCase = true)
+        }
+        require(matchingInterfaces.size <= 1) { "Interface name '$target' is ambiguous" }
+        matchingInterfaces.singleOrNull()?.let { networkInterface ->
+            require(networkInterface.isUp) { "Interface '$target' is not up" }
+            return usableAddresses(networkInterface).also {
+                require(it.isNotEmpty()) { "Interface '$target' has no usable addresses" }
+            }
+        }
 
         val address = InetAddress.getByName(target)
         require(NetworkInterface.getByInetAddress(address) != null) { "Address $target is not assigned locally" }
@@ -15,8 +23,7 @@ object NetworkUtils {
 
     fun getLocalIps(): List<String> {
         val ips = mutableListOf<String>()
-        val interfaces = NetworkInterface.getNetworkInterfaces() ?: return emptyList()
-        for (intf in interfaces) {
+        for (intf in localInterfaces()) {
             if (intf.isLoopback || !intf.isUp) continue
             ips.addAll(usableAddresses(intf))
         }
@@ -27,4 +34,7 @@ object NetworkUtils {
         networkInterface.inetAddresses.toList()
             .filterNot { it.isAnyLocalAddress || it.isMulticastAddress }
             .map(InetAddress::getHostAddress)
+
+    private fun localInterfaces(): List<NetworkInterface> =
+        NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
 }
